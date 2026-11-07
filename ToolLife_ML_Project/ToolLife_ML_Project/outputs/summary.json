@@ -1,0 +1,22 @@
+{
+  "rows": 100,
+  "complete_cases_for_ols": 73,
+  "missing_values": {
+    "Y": 0,
+    "X1": 5,
+    "X2": 5,
+    "X3": 5,
+    "X4": 5,
+    "X5": 5,
+    "X6": 5
+  },
+  "overall_tool_life_mean": 24.221400000000003,
+  "overall_tool_life_median": 24.255000000000003,
+  "overall_tool_life_std": 9.248667391859895,
+  "strongest_numeric_correlation": "X1",
+  "strongest_numeric_correlation_value": -0.5036878594542715,
+  "full_ols_r2": 0.9526986107750769,
+  "reduced_ols_r2": 0.9268530546210968,
+  "coolant_yes_minus_no_mean_hours": 2.4196491228070194,
+  "selected_ml_model_by_training_cv_mae": "Ridge"
+}

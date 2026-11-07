@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ToolLife ML – Intelligent Machining Tool Life Prediction System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            },
+            slate: {
+              850: '#152033',
+              950: '#0a0f1d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; color: #0f172a; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+    .tab-btn.active { color: #1d4ed8; background-color: #eff6ff; border-color: #bfdbfe; font-weight: 700; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .prediction-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP INDUSTRIAL HEADER -->
+  <header class="bg-slate-900 border-b border-slate-800 text-white py-6 px-4 sm:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-blue-600 rounded-lg text-white">
+              <i data-lucide="cpu" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                ToolLife ML – Intelligent Machining Tool Life Prediction System
+              </h1>
+              <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
+                Precision metrology, multivariate OLS regression modeling, and cross-validated machine learning for turning operations.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="https://github.com/shr3y4n/ToolLife" target="_blank" class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+            <i data-lucide="github" class="w-4 h-4"></i> GitHub Repository
+          </a>
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> SYSTEM ONLINE
+          </span>
+        </div>
+      </div>
+      <!-- BADGE ROW -->
+      <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono">
+        <span class="px-2.5 py-1 rounded bg-blue-900/60 text-blue-300 border border-blue-700/50">MODEL: RIDGE (α=1.0)</span>
+        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">DATASET: N=100 OBSERVATIONS</span>
+        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">OLS R² = 0.9527</span>
+        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">CV MAE = 2.262 HRS</span>
+        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">COMPLETE CASES: 73 (73.0%)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 sm:px-8 shadow-sm">
+    <div class="max-w-7xl mx-auto flex overflow-x-auto space-x-2 py-2 text-xs sm:text-sm font-medium">
+      <button onclick="switchTab('prediction')" id="tab-btn-prediction" class="tab-btn active px-3.5 py-2 rounded-md border border-transparent flex items-center gap-2 text-slate-700 whitespace-nowrap">
+        <i data-lucide="sliders" class="w-4 h-4"></i> Prediction Interface
+      </button>
+      <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="tab-btn px-3.5 py-2 rounded-md border border-transparent flex items-center gap-2 text-slate-700 whitespace-nowrap">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Analytics Metrology
+      </button>
+      <button onclick="switchTab('regression')" id="tab-btn-regression" class="tab-btn px-3.5 py-2 rounded-md border border-transparent flex items-center gap-2 text-slate-700 whitespace-nowrap">
+        <i data-lucide="activity" class="w-4 h-4"></i> Regression Analysis (OLS)
+      </button>
+      <button onclick="switchTab('models')" id="tab-btn-models" class="tab-btn px-3.5 py-2 rounded-md border border-transparent flex items-center gap-2 text-slate-700 whitespace-nowrap">
+        <i data-lucide="award" class="w-4 h-4"></i> Model Benchmark
+      </button>
+      <button onclick="switchTab('qa')" id="tab-btn-qa" class="tab-btn px-3.5 py-2 rounded-md border border-transparent flex items-center gap-2 text-slate-700 whitespace-nowrap">
+        <i data-lucide="help-circle" class="w-4 h-4"></i> Assignment Q&A
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-8">
+
+    <!-- TAB 1: PREDICTION INTERFACE -->
+    <section id="view-prediction" class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Machining Operational Parameter Inputs</h2>
+          <p class="text-xs text-slate-500">Tune turning conditions to predict cutting tool life (Y, hours) using the trained Ridge ML pipeline.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-500 mt-1 sm:mt-0">MODEL REFIT: RIDGE (α=1.0)</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Input Form (7 cols) -->
+        <div class="lg:col-span-7 space-y-6">
+          <div class="card p-5 space-y-5">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 border-b border-slate-100 pb-2">
+              1. Primary Cutting Dynamics
+            </h3>
+            
+            <!-- Lathe Speed X1 -->
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                <label for="input-x1" class="font-semibold">Lathe Speed (X1) [rpm]</label>
+                <span class="mono font-bold text-blue-600" id="val-x1">650 rpm</span>
+              </div>
+              <input type="range" id="input-x1" min="400" max="1200" step="10" value="650" class="w-full accent-blue-600" oninput="updatePrediction()">
+              <div class="flex justify-between text-[11px] text-slate-400 mt-0.5">
+                <span>400 rpm</span>
+                <span class="text-blue-500 font-medium">Experimental Domain: [500 – 1000]</span>
+                <span>1200 rpm</span>
+              </div>
+            </div>
+
+            <!-- Tool Type X2 -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tool Type (X2)</label>
+              <div class="grid grid-cols-2 gap-3">
+                <button type="button" id="btn-tool-A" onclick="setToolType('A')" class="py-2.5 px-3 rounded-md border text-xs font-medium text-center border-slate-300 text-slate-700 hover:border-blue-500 transition">
+                  <div class="font-bold">Tool Grade A</div>
+                  <div class="text-[10px] text-slate-400">Standard Uncoated Carbide</div>
+                </button>
+                <button type="button" id="btn-tool-B" onclick="setToolType('B')" class="py-2.5 px-3 rounded-md border text-xs font-medium text-center border-blue-600 bg-blue-50 text-blue-700 font-bold transition">
+                  <div class="font-bold">Tool Grade B</div>
+                  <div class="text-[10px] text-blue-600">High-Durability Coated Carbide</div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Feed Rate X3 & Depth of Cut X4 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                  <label for="input-x3" class="font-semibold">Feed Rate (X3) [mm/rev]</label>
+                  <span class="mono font-bold text-blue-600" id="val-x3">0.22</span>
+                </div>
+                <input type="range" id="input-x3" min="0.05" max="0.50" step="0.01" value="0.22" class="w-full accent-blue-600" oninput="updatePrediction()">
+                <div class="flex justify-between text-[10px] text-slate-400">
+                  <span>0.05</span>
+                  <span>Domain: 0.10–0.40</span>
+                  <span>0.50</span>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                  <label for="input-x4" class="font-semibold">Depth of Cut (X4) [mm]</label>
+                  <span class="mono font-bold text-blue-600" id="val-x4">1.2</span>
+                </div>
+                <input type="range" id="input-x4" min="0.2" max="3.0" step="0.1" value="1.2" class="w-full accent-blue-600" oninput="updatePrediction()">
+                <div class="flex justify-between text-[10px] text-slate-400">
+                  <span>0.2</span>
+                  <span>Domain: 0.5–2.5</span>
+                  <span>3.0</span>
+                </div>
+              </div>
+            </div>
+
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 border-b border-slate-100 pt-3 pb-2">
+              2. Environmental & Metallurgical Conditions
+            </h3>
+
+            <!-- Coolant X5 & Hardness X6 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Coolant Usage (X5)</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" id="btn-cool-yes" onclick="setCoolant('Yes')" class="py-2 px-3 rounded-md border text-xs text-center border-blue-600 bg-blue-50 text-blue-700 font-bold transition">
+                    Yes (Flood)
+                  </button>
+                  <button type="button" id="btn-cool-no" onclick="setCoolant('No')" class="py-2 px-3 rounded-md border text-xs text-center border-slate-300 text-slate-700 hover:border-blue-500 transition">
+                    No (Dry)
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                  <label for="input-x6" class="font-semibold">Workpiece Hardness (X6) [HB]</label>
+                  <span class="mono font-bold text-blue-600" id="val-x6">205</span>
+                </div>
+                <input type="range" id="input-x6" min="130" max="270" step="1" value="205" class="w-full accent-blue-600" oninput="updatePrediction()">
+                <div class="flex justify-between text-[10px] text-slate-400">
+                  <span>130 HB</span>
+                  <span>Domain: 150–249</span>
+                  <span>270 HB</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Preset Scenarios -->
+            <div class="pt-2 border-t border-slate-100">
+              <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Operational Presets:</span>
+              <div class="grid grid-cols-3 gap-2 mt-2">
+                <button type="button" onclick="loadPreset(540, 'B', 0.15, 0.8, 'Yes', 190)" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-left text-xs transition">
+                  <div class="font-bold text-slate-800">Finishing</div>
+                  <div class="text-[10px] text-slate-500">540 rpm, Tool B, Coolant</div>
+                </button>
+                <button type="button" onclick="loadPreset(650, 'B', 0.22, 1.2, 'Yes', 205)" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-left text-xs transition">
+                  <div class="font-bold text-slate-800">Balanced</div>
+                  <div class="text-[10px] text-slate-500">650 rpm, Tool B, Coolant</div>
+                </button>
+                <button type="button" onclick="loadPreset(920, 'A', 0.32, 2.0, 'No', 225)" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-left text-xs transition">
+                  <div class="font-bold text-slate-800">Roughing</div>
+                  <div class="text-[10px] text-slate-500">920 rpm, Tool A, Dry</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Prediction (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <!-- Prediction Card -->
+          <div class="prediction-card p-6 rounded-lg text-white text-center shadow-lg">
+            <span class="text-xs uppercase tracking-widest text-slate-400 font-bold block mb-1">
+              Predicted Operational Tool Life (Y)
+            </span>
+            <div class="flex items-baseline justify-center gap-2">
+              <span class="text-5xl font-extrabold text-sky-400 mono" id="result-hours">35.78</span>
+              <span class="text-lg font-medium text-slate-300">hours</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-700/60 flex justify-center gap-4">
+              <span>≈ <strong class="text-white mono" id="result-minutes">2147</strong> minutes</span>
+              <span>•</span>
+              <span>≈ <strong class="text-white mono" id="result-shifts">4.47</strong> 8-hr shifts</span>
+            </div>
+          </div>
+
+          <!-- Boundary Extrapolation Alert -->
+          <div id="extrapolation-alert" class="hidden p-3.5 rounded-md bg-amber-50 border-l-4 border-amber-500 text-amber-900 text-xs">
+            <strong>Extrapolation Notice:</strong> One or more parameters exceed the verified experimental envelope. Model stability is retained by Ridge regularization, but uncertainty is elevated.
+            <ul id="alert-items" class="list-disc list-inside mt-1 font-mono text-[11px] text-amber-800"></ul>
+          </div>
+          <div id="domain-success" class="p-3.5 rounded-md bg-emerald-50 border-l-4 border-emerald-500 text-emerald-900 text-xs">
+            <strong>Valid Operating Window:</strong> All parameters fall within the verified 100-run experimental regime.
+          </div>
+
+          <!-- Parameter Deltas -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="card p-3.5">
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" id="delta-tool-title">Grade Change (A)</div>
+              <div class="text-base font-bold mono" id="delta-tool-val">-14.38 hrs</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">Carbide substrate shift</div>
+            </div>
+            <div class="card p-3.5">
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1" id="delta-cool-title">Coolant (No)</div>
+              <div class="text-base font-bold mono" id="delta-cool-val">+0.15 hrs</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">Controlled thermal margin</div>
+            </div>
+          </div>
+
+          <!-- Physical Note -->
+          <div class="card p-4 text-xs text-slate-600 space-y-1.5 bg-slate-50/70">
+            <div class="font-bold text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600"></i> Metallurgical Mechanics (Taylor Law)
+            </div>
+            <p>
+              Tool life is exponentially governed by cutting velocity ($V \cdot T^n = C$). Tool Grade B incorporates high-temperature chemical vapor deposition (CVD) coatings that resist crater and flank thermal softening at high surface speeds.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPEED SENSITIVITY CHART -->
+      <div class="card p-5">
+        <div class="flex justify-between items-center mb-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">Lathe Speed (X1) Sensitivity Trajectory</h3>
+            <p class="text-xs text-slate-500">Tool life projection across 450 to 1100 rpm holding X2–X6 at current values.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-400">EMPIRICAL TAYLOR CURVE APPROXIMATION</span>
+        </div>
+        <div id="chart-sensitivity" class="w-full h-80"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: ANALYTICS METROLOGY -->
+    <section id="view-analytics" class="hidden space-y-6">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Machining Process Metrology & Exploratory Analytics</h2>
+          <p class="text-xs text-slate-500">Evaluations across 100 recorded lathe production cycles.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-500">N=100 OBSERVATIONS</span>
+      </div>
+
+      <!-- KPI METRICS ROW -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Runs</div>
+          <div class="text-2xl font-bold mono text-slate-900">100</div>
+          <div class="text-xs text-slate-500 mt-1">Recorded machining trials</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Complete Cases</div>
+          <div class="text-2xl font-bold mono text-slate-900">73</div>
+          <div class="text-xs text-slate-500 mt-1">Zero missing fields (73.0%)</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Mean Tool Life (Y)</div>
+          <div class="text-2xl font-bold mono text-slate-900">24.22<span class="text-sm font-normal text-slate-500">h</span></div>
+          <div class="text-xs text-slate-500 mt-1">Std Dev: ±9.25 hours</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Tool B Advantage</div>
+          <div class="text-2xl font-bold mono text-emerald-600">+15.55<span class="text-sm font-normal text-emerald-700">h</span></div>
+          <div class="text-xs text-slate-500 mt-1">+94.2% longer than Tool A</div>
+        </div>
+      </div>
+
+      <!-- SUMMARY TABLE & MISSINGNESS -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Statistics Table -->
+        <div class="card p-5">
+          <h3 class="text-sm font-bold text-slate-800 mb-2">Descriptive Statistics of Numeric Variables</h3>
+          <div class="overflow-x-auto text-xs">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-500 font-semibold">
+                  <th class="py-2">Variable</th>
+                  <th class="py-2 mono">Valid N</th>
+                  <th class="py-2 mono">Mean</th>
+                  <th class="py-2 mono">Std Dev</th>
+                  <th class="py-2 mono">Median</th>
+                  <th class="py-2 mono">Range</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 mono text-slate-700">
+                <tr><td class="py-2 font-sans font-medium text-slate-900">Y (Tool Life, hrs)</td><td>100</td><td>24.221</td><td>9.249</td><td>24.255</td><td>9.10 – 43.67</td></tr>
+                <tr><td class="py-2 font-sans font-medium text-slate-900">X1 (Lathe Speed, rpm)</td><td>95</td><td>755.158</td><td>146.635</td><td>760.000</td><td>500 – 1000</td></tr>
+                <tr><td class="py-2 font-sans font-medium text-slate-900">X3 (Feed Rate, mm/rev)</td><td>95</td><td>0.255</td><td>0.062</td><td>0.260</td><td>0.10 – 0.40</td></tr>
+                <tr><td class="py-2 font-sans font-medium text-slate-900">X4 (Depth of Cut, mm)</td><td>95</td><td>1.500</td><td>0.447</td><td>1.500</td><td>0.50 – 2.50</td></tr>
+                <tr><td class="py-2 font-sans font-medium text-slate-900">X6 (Hardness, HB)</td><td>95</td><td>201.411</td><td>19.416</td><td>203.000</td><td>150 – 249</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Missing Values Chart -->
+        <div class="card p-5">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Missing Value Breakdown (Assignment Q1)</h3>
+          <p class="text-xs text-slate-500 mb-3">5 missing values per predictor feature (5.0%); 0 in output Y.</p>
+          <div id="chart-missing" class="w-full h-56"></div>
+        </div>
+      </div>
+
+      <!-- CORRELATION & TOOL COMPARISONS -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Pearson Correlations -->
+        <div class="card p-5">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Pearson Correlation with Tool Life (Assignment Q3)</h3>
+          <p class="text-xs text-slate-500 mb-3">Lathe Speed (X1) has the strongest negative association (r = -0.5037).</p>
+          <div id="chart-correlation" class="w-full h-64"></div>
+        </div>
+
+        <!-- Tool Grade Comparison -->
+        <div class="card p-5">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Tool Life Breakdown by Tool Type (Assignment Q2)</h3>
+          <p class="text-xs text-slate-500 mb-3">Tool B achieves mean 32.07h vs Tool A mean 16.52h.</p>
+          <div id="chart-tool-compare" class="w-full h-64"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: REGRESSION ANALYSIS (OLS) -->
+    <section id="view-regression" class="hidden space-y-6">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Ordinary Least Squares (OLS) Parametric Regression</h2>
+          <p class="text-xs text-slate-500">Complete-case parametric modeling (n=73) comparing full feature set against reduced model.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-500">STATSMODELS OLS REPRODUCIBLE</span>
+      </div>
+
+      <!-- Regression Comparison Metric Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Full Model R²</div>
+          <div class="text-2xl font-bold mono text-slate-900">0.9527</div>
+          <div class="text-xs text-slate-500 mt-1">Adj R² = 0.9484 (df=66)</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Reduced Model R²</div>
+          <div class="text-2xl font-bold mono text-slate-900">0.9269</div>
+          <div class="text-xs text-slate-500 mt-1">Adj R² = 0.9248 (df=70)</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Variance Delta (ΔR²)</div>
+          <div class="text-2xl font-bold mono text-emerald-600">+0.0258</div>
+          <div class="text-xs text-slate-500 mt-1">+2.58% additional variance</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Primary Variance Drivers</div>
+          <div class="text-base font-bold mono text-slate-800">X1 + Tool B</div>
+          <div class="text-xs text-slate-500 mt-1">Explains 92.69% of all variance</div>
+        </div>
+      </div>
+
+      <!-- Full Model Coefficients Table -->
+      <div class="card p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1">Full OLS Model Parameter Estimates</h3>
+        <p class="text-xs text-slate-500 mb-3 mono">Y ~ X1 + X3 + X4 + X6 + tool_B + coolant_Yes (n=73)</p>
+        <div class="overflow-x-auto text-xs">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-500 font-semibold">
+                <th class="py-2">Variable</th>
+                <th class="py-2 mono">Coefficient (β)</th>
+                <th class="py-2 mono">Std Error</th>
+                <th class="py-2 mono">t-statistic</th>
+                <th class="py-2 mono">p-value</th>
+                <th class="py-2 mono">95% Conf. Interval</th>
+                <th class="py-2">Significance</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 mono text-slate-700">
+              <tr><td class="py-2 font-sans font-medium text-slate-900">Intercept</td><td>49.9403</td><td>3.243</td><td>15.400</td><td>&lt; 0.001</td><td>[43.466, 56.415]</td><td><span class="text-emerald-700 font-bold font-sans">*** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">X1 (Lathe Speed)</td><td>-0.0302</td><td>0.002</td><td>-17.466</td><td>&lt; 0.001</td><td>[-0.034, -0.027]</td><td><span class="text-emerald-700 font-bold font-sans">*** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">X3 (Feed Rate)</td><td>-13.2674</td><td>4.296</td><td>-3.089</td><td>0.003</td><td>[-21.844, -4.691]</td><td><span class="text-emerald-700 font-bold font-sans">** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">X4 (Depth of Cut)</td><td>-1.7037</td><td>0.595</td><td>-2.863</td><td>0.006</td><td>[-2.892, -0.516]</td><td><span class="text-emerald-700 font-bold font-sans">** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">X6 (Hardness)</td><td>-0.0266</td><td>0.014</td><td>-1.883</td><td>0.064</td><td>[-0.055, 0.002]</td><td><span class="text-slate-500 font-sans">ns (p=0.064)</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">tool_B (Tool Grade B)</td><td>15.4615</td><td>0.506</td><td>30.527</td><td>&lt; 0.001</td><td>[14.450, 16.473]</td><td><span class="text-emerald-700 font-bold font-sans">*** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">coolant_Yes (Coolant)</td><td>0.6008</td><td>0.542</td><td>1.109</td><td>0.271</td><td>[-0.481, 1.682]</td><td><span class="text-slate-500 font-sans">ns (p=0.271)</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Reduced Model Coefficients Table -->
+      <div class="card p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1">Reduced OLS Model Parameter Estimates</h3>
+        <p class="text-xs text-slate-500 mb-3 mono">Y ~ X1 + tool_B (n=73)</p>
+        <div class="overflow-x-auto text-xs">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-500 font-semibold">
+                <th class="py-2">Variable</th>
+                <th class="py-2 mono">Coefficient (β)</th>
+                <th class="py-2 mono">Std Error</th>
+                <th class="py-2 mono">t-statistic</th>
+                <th class="py-2 mono">p-value</th>
+                <th class="py-2 mono">95% Conf. Interval</th>
+                <th class="py-2">Significance</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 mono text-slate-700">
+              <tr><td class="py-2 font-sans font-medium text-slate-900">Intercept</td><td>39.7234</td><td>1.577</td><td>25.195</td><td>&lt; 0.001</td><td>[36.579, 42.868]</td><td><span class="text-emerald-700 font-bold font-sans">*** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">X1 (Lathe Speed)</td><td>-0.0310</td><td>0.002</td><td>-15.163</td><td>&lt; 0.001</td><td>[-0.035, -0.027]</td><td><span class="text-emerald-700 font-bold font-sans">*** Significant</span></td></tr>
+              <tr><td class="py-2 font-sans font-medium text-slate-900">tool_B (Tool Grade B)</td><td>15.2081</td><td>0.607</td><td>25.045</td><td>&lt; 0.001</td><td>[13.997, 16.419]</td><td><span class="text-emerald-700 font-bold font-sans">*** Significant</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: MODEL EVALUATION & BENCHMARK -->
+    <section id="view-models" class="hidden space-y-6">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Predictive Machine Learning Benchmark & Validation</h2>
+          <p class="text-xs text-slate-500">Cross-validated benchmark comparing regularized linear modeling with non-linear tree ensembles.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-500">SELECTION METRIC: 5-FOLD CV MAE</span>
+      </div>
+
+      <!-- Formal Benchmark Table -->
+      <div class="card p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1">Model Comparison Results (Saved Outputs)</h3>
+        <p class="text-xs text-slate-500 mb-3">80% training partition, 5-fold cross-validation, 20% holdout test evaluation.</p>
+        <div class="overflow-x-auto text-xs">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-500 font-semibold">
+                <th class="py-2">Model Architecture</th>
+                <th class="py-2 mono">Train 5-Fold CV MAE</th>
+                <th class="py-2 mono">Test MAE</th>
+                <th class="py-2 mono">Test RMSE</th>
+                <th class="py-2 mono">Test R²</th>
+                <th class="py-2">Selection Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 mono text-slate-700">
+              <tr class="bg-blue-50/50">
+                <td class="py-2.5 font-sans font-bold text-blue-900">Ridge Regression</td>
+                <td class="font-bold text-blue-700">2.2623 hrs</td>
+                <td class="font-bold text-blue-700">2.6399 hrs</td>
+                <td class="font-bold text-blue-700">4.3181 hrs</td>
+                <td class="font-bold text-blue-700">0.6928</td>
+                <td><span class="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-sans text-[11px] font-bold">🏆 Best Model</span></td>
+              </tr>
+              <tr>
+                <td class="py-2 font-sans font-medium text-slate-900">Extra Trees Regressor</td>
+                <td>2.8071 hrs</td>
+                <td>3.1714 hrs</td>
+                <td>4.9955 hrs</td>
+                <td>0.5888</td>
+                <td><span class="text-slate-500 font-sans text-[11px]">Ensemble Alternative</span></td>
+              </tr>
+              <tr>
+                <td class="py-2 font-sans font-medium text-slate-900">Gradient Boosting Regressor</td>
+                <td>2.8566 hrs</td>
+                <td>3.3773 hrs</td>
+                <td>5.3084 hrs</td>
+                <td>0.5357</td>
+                <td><span class="text-slate-500 font-sans text-[11px]">Ensemble Alternative</span></td>
+              </tr>
+              <tr>
+                <td class="py-2 font-sans font-medium text-slate-900">Random Forest Regressor</td>
+                <td>3.0565 hrs</td>
+                <td>3.4845 hrs</td>
+                <td>5.3270 hrs</td>
+                <td>0.5324</td>
+                <td><span class="text-slate-500 font-sans text-[11px]">Ensemble Alternative</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Visual Benchmark Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card p-5">
+          <h3 class="text-sm font-bold text-slate-800 mb-2">Mean Absolute Error Benchmark (Lower is Better)</h3>
+          <div id="chart-models-mae" class="w-full h-64"></div>
+        </div>
+        <div class="card p-5">
+          <h3 class="text-sm font-bold text-slate-800 mb-2">Test Holdout R² Score (Higher is Better)</h3>
+          <div id="chart-models-r2" class="w-full h-64"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: ASSIGNMENT Q&A -->
+    <section id="view-qa" class="hidden space-y-5">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Original Examination Questions & Verified Solutions</h2>
+          <p class="text-xs text-slate-500">Formal answers aligned with workbook sheet Questions in TOOL_LIFE_DATA_100_ANSWERED.xlsx.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-500">SOURCE: TOOL_LIFE_DATA_100_ANSWERED.XLSX</span>
+      </div>
+
+      <!-- Question 1 -->
+      <div class="card p-5 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700">Question 1</span>
+          <span class="text-xs mono font-semibold text-slate-500">5 missing values (5%) across all 6 predictors</span>
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">
+          How many missing values are in each column (Y is the output and has none), and what percent of the 100 rows is that?
+        </h3>
+        <div class="p-3.5 bg-slate-50 border-l-4 border-blue-600 rounded text-xs mono text-slate-800 leading-relaxed">
+          <strong>Formal Answer:</strong><br>
+          Missing values among analysis columns: Y: 0 (0.0%); X1: 5 (5.0%); X2: 5 (5.0%); X3: 5 (5.0%); X4: 5 (5.0%); X5: 5 (5.0%); X6: 5 (5.0%). Each of X1, X2, X3, X4, X5 and X6 has 5 missing values (5% of 100 rows); Y has 0 (0%).
+        </div>
+      </div>
+
+      <!-- Question 2 -->
+      <div class="card p-5 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700">Question 2</span>
+          <span class="text-xs mono font-semibold text-slate-500">Overall Mean = 24.22h | Tool B = 32.07h | Coolant Yes = 25.34h</span>
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">
+          What are the mean, median and standard deviation of tool life (Y), overall, by tool type (X2) and by coolant use (X5)?
+        </h3>
+        <div class="p-3.5 bg-slate-50 border-l-4 border-blue-600 rounded text-xs mono text-slate-800 leading-relaxed">
+          <strong>Formal Answer:</strong><br>
+          Overall Y: mean=24.2214, median=24.2550, sample SD=9.2487. By tool type: A: n=48, mean=16.5190, median=15.3250, SD=4.7963; B: n=47, mean=32.0738, median=32.5800, SD=5.7294. By coolant: No: n=38, mean=22.9189, median=21.9650, SD=8.6582; Yes: n=57, mean=25.3386, median=25.4000, SD=9.6235.
+        </div>
+      </div>
+
+      <!-- Question 3 -->
+      <div class="card p-5 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700">Question 3</span>
+          <span class="text-xs mono font-semibold text-slate-500">Strongest: Lathe Speed (X1) with r = -0.5037</span>
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">
+          What is the correlation of each numeric predictor (X1, X3, X4, X6) with tool life (Y)? Which is strongest?
+        </h3>
+        <div class="p-3.5 bg-slate-50 border-l-4 border-blue-600 rounded text-xs mono text-slate-800 leading-relaxed">
+          <strong>Formal Answer:</strong><br>
+          Pearson correlations with Y: X1: -0.5037; X3: -0.1081; X4: -0.1252; X6: -0.0339. Strongest absolute correlation is X1 (lathe speed), r=-0.5037, a negative association.
+        </div>
+      </div>
+
+      <!-- Question 4 -->
+      <div class="card p-5 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700">Question 4</span>
+          <span class="text-xs mono font-semibold text-slate-500">Full OLS R² = 0.9527 vs Reduced OLS R² = 0.9269 (ΔR² = +0.0258)</span>
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">
+          Fit a regression of Y on X1, X3, X4, X6 plus dummies for tool type B and coolant Yes: what are the coefficients and R-squared, and how does it compare with a model using only X1 and tool type?
+        </h3>
+        <div class="p-3.5 bg-slate-50 border-l-4 border-blue-600 rounded text-xs mono text-slate-800 leading-relaxed">
+          <strong>Formal Answer:</strong><br>
+          Complete-case OLS (n=73), Y ~ X1 + X3 + X4 + X6 + tool_B + coolant_Yes: Intercept=49.9403; X1=-0.0302; X3=-13.2674; X4=-1.7037; X6=-0.0266; tool_B=15.4615; coolant_Yes=0.6008. R²=0.9527, adjusted R²=0.9484. Reduced model Y ~ X1 + tool_B: Intercept=39.7234, X1=-0.0310, tool_B=15.2081, R²=0.9269, adjusted R²=0.9248. Full model improves R² by 0.0258.
+        </div>
+      </div>
+
+      <!-- Question 5 -->
+      <div class="card p-5 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700">Question 5</span>
+          <span class="text-xs mono font-semibold text-slate-500">Unadjusted Bivariate Difference: +2.4196 hours with Coolant</span>
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">
+          Compare mean Y for runs with coolant vs without coolant: what is the difference?
+        </h3>
+        <div class="p-3.5 bg-slate-50 border-l-4 border-blue-600 rounded text-xs mono text-slate-800 leading-relaxed">
+          <strong>Formal Answer:</strong><br>
+          Mean Y with coolant (Yes)=25.3386 hours; without coolant (No)=22.9189 hours. Difference (Yes − No)=2.4196 hours.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- INDUSTRIAL FOOTER -->
+  <footer class="bg-white border-t border-slate-200 py-6 px-4 sm:px-8 mt-auto text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+      <div>
+        <strong>ToolLife ML</strong> – Intelligent Machining Tool Life Prediction & Regression Metrology System.
+      </div>
+      <div class="mono text-[11px]">
+        Hosted on GitHub Pages • ISO 3685 Metrology Reference
+      </div>
+    </div>
+  </footer>
+
+  <!-- CORE JAVASCRIPT LOGIC -->
+  <script>
+    // State variables
+    let currentTool = 'B';
+    let currentCoolant = 'Yes';
+
+    // Model Parameters from outputs/tool_life_model.joblib
+    const RIDGE_INTERCEPT = 24.670836660161157;
+    const SCALER_MEAN = [755.40, 0.25510, 1.5000, 201.49];
+    const SCALER_SCALE = [142.171868, 0.0604565133, 0.433589668, 18.8273710];
+    const COEF_NUM = [-3.89406106, -0.81234444, -1.15362206, -0.89198287];
+    const COEF_TOOL_B = 7.1921258;
+    const COEF_COOL_YES = -0.0746213;
+
+    function calculateToolLife(x1, tool, x3, x4, coolant, x6) {
+      const z1 = (x1 - SCALER_MEAN[0]) / SCALER_SCALE[0];
+      const z3 = (x3 - SCALER_MEAN[1]) / SCALER_SCALE[1];
+      const z4 = (x4 - SCALER_MEAN[2]) / SCALER_SCALE[2];
+      const z6 = (x6 - SCALER_MEAN[3]) / SCALER_SCALE[3];
+
+      const t_val = (tool === 'B') ? COEF_TOOL_B : -COEF_TOOL_B;
+      const c_val = (coolant === 'Yes') ? COEF_COOL_YES : -COEF_COOL_YES;
+
+      const pred = RIDGE_INTERCEPT 
+        + (COEF_NUM[0] * z1)
+        + (COEF_NUM[1] * z3)
+        + (COEF_NUM[2] * z4)
+        + (COEF_NUM[3] * z6)
+        + t_val + c_val;
+
+      return Math.max(0.0, pred);
+    }
+
+    function updatePrediction() {
+      const x1 = parseFloat(document.getElementById('input-x1').value);
+      const x3 = parseFloat(document.getElementById('input-x3').value);
+      const x4 = parseFloat(document.getElementById('input-x4').value);
+      const x6 = parseFloat(document.getElementById('input-x6').value);
+
+      document.getElementById('val-x1').innerText = x1 + ' rpm';
+      document.getElementById('val-x3').innerText = x3.toFixed(2);
+      document.getElementById('val-x4').innerText = x4.toFixed(1);
+      document.getElementById('val-x6').innerText = x6.toFixed(0);
+
+      // Prediction
+      const pred = calculateToolLife(x1, currentTool, x3, x4, currentCoolant, x6);
+      document.getElementById('result-hours').innerText = pred.toFixed(2);
+      document.getElementById('result-minutes').innerText = (pred * 60).toFixed(0);
+      document.getElementById('result-shifts').innerText = (pred / 8.0).toFixed(2);
+
+      // Boundary Checks
+      const alerts = [];
+      if (x1 < 500 || x1 > 1000) alerts.push(`Lathe Speed ${x1} rpm lies outside domain [500, 1000] rpm.`);
+      if (x3 < 0.10 || x3 > 0.40) alerts.push(`Feed Rate ${x3.toFixed(2)} mm/rev lies outside domain [0.10, 0.40] mm/rev.`);
+      if (x4 < 0.5 || x4 > 2.5) alerts.push(`Depth of Cut ${x4.toFixed(1)} mm lies outside domain [0.5, 2.5] mm.`);
+      if (x6 < 150 || x6 > 249) alerts.push(`Hardness ${x6} HB lies outside domain [150, 249] HB.`);
+
+      const alertBox = document.getElementById('extrapolation-alert');
+      const successBox = document.getElementById('domain-success');
+      const alertItems = document.getElementById('alert-items');
+
+      if (alerts.length > 0) {
+        alertBox.classList.remove('hidden');
+        successBox.classList.add('hidden');
+        alertItems.innerHTML = alerts.map(a => `<li>${a}</li>`).join('');
+      } else {
+        alertBox.classList.add('hidden');
+        successBox.classList.remove('hidden');
+      }
+
+      // Deltas
+      const altTool = (currentTool === 'B') ? 'A' : 'B';
+      const predAltTool = calculateToolLife(x1, altTool, x3, x4, currentCoolant, x6);
+      const toolDelta = predAltTool - pred;
+      document.getElementById('delta-tool-title').innerText = `Shift to Grade ${altTool}`;
+      document.getElementById('delta-tool-val').innerText = (toolDelta >= 0 ? '+' : '') + toolDelta.toFixed(2) + ' hrs';
+      document.getElementById('delta-tool-val').className = 'text-base font-bold mono ' + (toolDelta >= 0 ? 'text-emerald-600' : 'text-rose-600');
+
+      const altCoolant = (currentCoolant === 'Yes') ? 'No' : 'Yes';
+      const predAltCool = calculateToolLife(x1, currentTool, x3, x4, altCoolant, x6);
+      const coolDelta = predAltCool - pred;
+      document.getElementById('delta-cool-title').innerText = `Coolant (${altCoolant})`;
+      document.getElementById('delta-cool-val').innerText = (coolDelta >= 0 ? '+' : '') + coolDelta.toFixed(2) + ' hrs';
+      document.getElementById('delta-cool-val').className = 'text-base font-bold mono ' + (coolDelta >= 0 ? 'text-emerald-600' : 'text-rose-600');
+
+      renderSensitivityChart(x1, currentTool, x3, x4, currentCoolant, x6, pred);
+    }
+
+    function setToolType(type) {
+      currentTool = type;
+      if (type === 'B') {
+        document.getElementById('btn-tool-B').className = 'py-2.5 px-3 rounded-md border text-xs text-center border-blue-600 bg-blue-50 text-blue-700 font-bold transition';
+        document.getElementById('btn-tool-A').className = 'py-2.5 px-3 rounded-md border text-xs text-center border-slate-300 text-slate-700 hover:border-blue-500 transition';
+      } else {
+        document.getElementById('btn-tool-A').className = 'py-2.5 px-3 rounded-md border text-xs text-center border-blue-600 bg-blue-50 text-blue-700 font-bold transition';
+        document.getElementById('btn-tool-B').className = 'py-2.5 px-3 rounded-md border text-xs text-center border-slate-300 text-slate-700 hover:border-blue-500 transition';
+      }
+      updatePrediction();
+    }
+
+    function setCoolant(val) {
+      currentCoolant = val;
+      if (val === 'Yes') {
+        document.getElementById('btn-cool-yes').className = 'py-2 px-3 rounded-md border text-xs text-center border-blue-600 bg-blue-50 text-blue-700 font-bold transition';
+        document.getElementById('btn-cool-no').className = 'py-2 px-3 rounded-md border text-xs text-center border-slate-300 text-slate-700 hover:border-blue-500 transition';
+      } else {
+        document.getElementById('btn-cool-no').className = 'py-2 px-3 rounded-md border text-xs text-center border-blue-600 bg-blue-50 text-blue-700 font-bold transition';
+        document.getElementById('btn-cool-yes').className = 'py-2 px-3 rounded-md border text-xs text-center border-slate-300 text-slate-700 hover:border-blue-500 transition';
+      }
+      updatePrediction();
+    }
+
+    function loadPreset(x1, tool, x3, x4, coolant, x6) {
+      document.getElementById('input-x1').value = x1;
+      document.getElementById('input-x3').value = x3;
+      document.getElementById('input-x4').value = x4;
+      document.getElementById('input-x6').value = x6;
+      setToolType(tool);
+      setCoolant(coolant);
+    }
+
+    function renderSensitivityChart(x1, tool, x3, x4, coolant, x6, pred) {
+      const speeds = [];
+      const lifeCurrent = [];
+      const lifeAlt = [];
+      const altTool = (tool === 'B') ? 'A' : 'B';
+
+      for (let s = 450; s <= 1100; s += 10) {
+        speeds.push(s);
+        lifeCurrent.push(calculateToolLife(s, tool, x3, x4, coolant, x6));
+        lifeAlt.push(calculateToolLife(s, altTool, x3, x4, coolant, x6));
+      }
+
+      const traceCurrent = {
+        x: speeds,
+        y: lifeCurrent,
+        mode: 'lines',
+        name: `Current (Tool ${tool}, Coolant: ${coolant})`,
+        line: { color: '#2563eb', width: 3 }
+      };
+
+      const traceAlt = {
+        x: speeds,
+        y: lifeAlt,
+        mode: 'lines',
+        name: `Alternative (Tool ${altTool})`,
+        line: { color: '#94a3b8', width: 2, dash: 'dash' }
+      };
+
+      const tracePoint = {
+        x: [x1],
+        y: [pred],
+        mode: 'markers+text',
+        name: 'Operating Point',
+        marker: { color: '#b91c1c', size: 10, line: { color: '#ffffff', width: 2 } },
+        text: [`  ${pred.toFixed(2)}h @ ${x1} rpm`],
+        textposition: 'top right',
+        textfont: { family: 'JetBrains Mono', size: 11, color: '#0f172a' }
+      };
+
+      const layout = {
+        margin: { l: 45, r: 25, t: 20, b: 40 },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { family: 'Plus Jakarta Sans', size: 12, color: '#334155' },
+        xaxis: { title: 'Lathe Speed (X1) [rpm]', gridcolor: '#f1f5f9' },
+        yaxis: { title: 'Tool Life (Y) [hours]', gridcolor: '#f1f5f9' },
+        legend: { orientation: 'h', y: 1.1, x: 0.5, xanchor: 'center' },
+        shapes: [
+          {
+            type: 'rect',
+            xref: 'x', yref: 'paper',
+            x0: 500, x1: 1000, y0: 0, y1: 1,
+            fillcolor: 'rgba(37, 99, 235, 0.04)',
+            line: { width: 1, color: 'rgba(37, 99, 235, 0.2)' }
+          }
+        ]
+      };
+
+      Plotly.react('chart-sensitivity', [traceCurrent, traceAlt, tracePoint], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function switchTab(tabId) {
+      ['prediction', 'analytics', 'regression', 'models', 'qa'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        document.getElementById(`tab-btn-${t}`).classList.remove('active');
+      });
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      document.getElementById(`tab-btn-${tabId}`).classList.add('active');
+
+      if (tabId === 'analytics') renderAnalyticsCharts();
+      if (tabId === 'models') renderModelCharts();
+    }
+
+    function renderAnalyticsCharts() {
+      // Missing values
+      Plotly.react('chart-missing', [{
+        x: ['Y', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6'],
+        y: [0, 5, 5, 5, 5, 5, 5],
+        type: 'bar',
+        marker: { color: ['#059669', '#2563eb', '#2563eb', '#2563eb', '#2563eb', '#2563eb', '#2563eb'] },
+        text: ['0 (0%)', '5 (5%)', '5 (5%)', '5 (5%)', '5 (5%)', '5 (5%)', '5 (5%)'],
+        textposition: 'auto'
+      }], {
+        margin: { l: 35, r: 20, t: 15, b: 35 },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        yaxis: { title: 'Missing Count', gridcolor: '#f1f5f9' }
+      }, { responsive: true, displayModeBar: false });
+
+      // Correlation chart
+      Plotly.react('chart-correlation', [{
+        x: ['X1 (Lathe Speed)', 'X4 (Depth of Cut)', 'X3 (Feed Rate)', 'X6 (Hardness)'],
+        y: [-0.5037, -0.1252, -0.1081, -0.0339],
+        type: 'bar',
+        marker: { color: ['#b91c1c', '#64748b', '#64748b', '#64748b'] },
+        text: ['-0.5037', '-0.1252', '-0.1081', '-0.0339'],
+        textposition: 'auto'
+      }], {
+        margin: { l: 45, r: 20, t: 15, b: 35 },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        yaxis: { title: 'Pearson r with Tool Life', range: [-0.6, 0.1], gridcolor: '#f1f5f9' }
+      }, { responsive: true, displayModeBar: false });
+
+      // Tool compare chart
+      Plotly.react('chart-tool-compare', [{
+        x: ['Tool Grade A', 'Tool Grade B'],
+        y: [16.519, 32.074],
+        type: 'bar',
+        marker: { color: ['#0284c7', '#b45309'] },
+        text: ['Mean: 16.52 hrs', 'Mean: 32.07 hrs (+94%)'],
+        textposition: 'auto'
+      }], {
+        margin: { l: 45, r: 20, t: 15, b: 35 },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        yaxis: { title: 'Mean Tool Life (hours)', gridcolor: '#f1f5f9' }
+      }, { responsive: true, displayModeBar: false });
+    }
+
+    function renderModelCharts() {
+      // Models MAE
+      Plotly.react('chart-models-mae', [
+        {
+          name: 'Train 5-Fold CV MAE',
+          x: ['Ridge', 'Extra Trees', 'Gradient Boosting', 'Random Forest'],
+          y: [2.2623, 2.8071, 2.8566, 3.0565],
+          type: 'bar',
+          marker: { color: '#1d4ed8' },
+          text: ['2.262h', '2.807h', '2.857h', '3.057h'],
+          textposition: 'auto'
+        },
+        {
+          name: 'Holdout Test MAE',
+          x: ['Ridge', 'Extra Trees', 'Gradient Boosting', 'Random Forest'],
+          y: [2.6399, 3.1714, 3.3773, 3.4845],
+          type: 'bar',
+          marker: { color: '#60a5fa' },
+          text: ['2.640h', '3.171h', '3.377h', '3.485h'],
+          textposition: 'auto'
+        }
+      ], {
+        margin: { l: 40, r: 20, t: 15, b: 35 },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        barmode: 'group',
+        yaxis: { title: 'MAE (hours)', gridcolor: '#f1f5f9' },
+        legend: { orientation: 'h', y: 1.15 }
+      }, { responsive: true, displayModeBar: false });
+
+      // Models R2
+      Plotly.react('chart-models-r2', [{
+        x: ['Ridge', 'Extra Trees', 'Gradient Boosting', 'Random Forest'],
+        y: [0.6928, 0.5888, 0.5357, 0.5324],
+        type: 'bar',
+        marker: { color: ['#047857', '#64748b', '#64748b', '#64748b'] },
+        text: ['0.693', '0.589', '0.536', '0.532'],
+        textposition: 'auto'
+      }], {
+        margin: { l: 40, r: 20, t: 15, b: 35 },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        yaxis: { title: 'Holdout Test R²', range: [0, 0.8], gridcolor: '#f1f5f9' }
+      }, { responsive: true, displayModeBar: false });
+    }
+
+    // Initialize on window load
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      updatePrediction();
+    });
+  </script>
+</body>
+</html>

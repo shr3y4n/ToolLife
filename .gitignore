@@ -1,0 +1,20 @@
+# Environments
+venv/
+*/venv/
+*/*/venv/
+.env
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+*/__pycache__/
+*/*/__pycache__/
+
+# Distribution / packaging
+ToolLife_ML_Project.zip
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
